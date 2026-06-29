@@ -1,0 +1,34 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum Role berdasarkan PRD Level 1
+enum Role {
+  ADMIN
+  SELLER
+  BUYER
+  DRIVER
+}
+
+// Entitas User
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String   // Akan di-hash menggunakan Argon2
+  
+  // Array of roles untuk mendukung multi-role ownership
+  roles     Role[]   
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users") // Best practice penamaan tabel jamak & lowercase
+}

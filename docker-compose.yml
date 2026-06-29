@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: seapedia_db
+    environment:
+      POSTGRES_USER: seapedia_admin
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: seapedia_core
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
