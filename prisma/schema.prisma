@@ -9,7 +9,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enum Role berdasarkan PRD Level 1
 enum Role {
   ADMIN
   SELLER
@@ -17,18 +16,157 @@ enum Role {
   DRIVER
 }
 
-// Entitas User
+// Enum Status Pesanan sesuai PRD Level 4 & 5
+enum OrderStatus {
+  SEDANG_DIKEMAS     // Menunggu Seller memproses
+  MENUNGGU_PENGIRIM  // Seller sudah proses, menunggu Driver
+  SEDANG_DIKIRIM     // Driver sedang mengantar
+  PESANAN_SELESAI    // Selesai
+  DIKEMBALIKAN       // Overdue / Refund
+}
+
+enum DeliveryMethod {
+  INSTANT
+  NEXT_DAY
+  REGULAR
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String
-  password  String   // Akan di-hash menggunakan Argon2
-  
-  // Array of roles untuk mendukung multi-role ownership
+  password  String   
   roles     Role[]   
   
+  store     Store?   
+  wallet    Wallet?
+  addresses Address[]
+  cart      Cart?
+  orders    Order[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("users") // Best practice penamaan tabel jamak & lowercase
+  @@map("users")
+}
+
+model ApplicationReview {
+  id           String   @id @default(uuid())
+  reviewerName String
+  rating       Int      
+  comment      String   @db.Text
+  createdAt    DateTime @default(now())
+
+  @@map("application_reviews")
+}
+
+model Store {
+  id        String    @id @default(uuid())
+  name      String    @unique 
+  ownerId   String    @unique
+  owner     User      @relation(fields: [ownerId], references: [id])
+  products  Product[]
+  orders    Order[]   // Pesanan yang masuk ke toko ini
+  createdAt DateTime  @default(now())
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String   @db.Text
+  price       Decimal  @db.Decimal(12, 2)
+  stock       Int
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id])
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  createdAt   DateTime @default(now())
+}
+
+// ================= LEVEL 3 MODELS =================
+
+model Wallet {
+  id           String             @id @default(uuid())
+  userId       String             @unique
+  user         User               @relation(fields: [userId], references: [id])
+  balance      Decimal            @default(0) @db.Decimal(12, 2)
+  transactions WalletTransaction[]
+  updatedAt    DateTime           @updatedAt
+}
+
+model WalletTransaction {
+  id          String   @id @default(uuid())
+  walletId    String
+  wallet      Wallet   @relation(fields: [walletId], references: [id])
+  amount      Decimal  @db.Decimal(12, 2)
+  type        String   // "TOP_UP", "PAYMENT", "REFUND", "INCOME"
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  street     String
+  city       String
+  postalCode String
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  buyerId   String     @unique
+  buyer     User       @relation(fields: [buyerId], references: [id])
+  items     CartItem[]
+}
+
+model CartItem {
+  id        String  @id @default(uuid())
+  cartId    String
+  cart      Cart    @relation(fields: [cartId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+}
+
+model Order {
+  id             String      @id @default(uuid())
+  buyerId        String
+  buyer          User        @relation(fields: [buyerId], references: [id])
+  storeId        String
+  store          Store       @relation(fields: [storeId], references: [id])
+  
+  status         OrderStatus @default(SEDANG_DIKEMAS)
+  deliveryMethod DeliveryMethod
+  
+  // Kalkulasi Finansial
+  subtotal       Decimal     @db.Decimal(12, 2)
+  deliveryFee    Decimal     @db.Decimal(12, 2)
+  taxPpn         Decimal     @db.Decimal(12, 2) // PPN 12%
+  discount       Decimal     @default(0) @db.Decimal(12, 2)
+  total          Decimal     @db.Decimal(12, 2)
+
+  items          OrderItem[]
+  history        OrderStatusHistory[]
+  
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Decimal @db.Decimal(12, 2) // Harga saat dibeli (historical price)
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(uuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id])
+  status    OrderStatus
+  timestamp DateTime    @default(now()) // Wajib ada sesuai PRD
 }
