@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -9,9 +10,11 @@ import { WalletsModule } from './wallets/wallets.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { CartsModule } from './carts/carts.module';
 import { OrdersModule } from './orders/orders.module';
+import { VouchersModule } from './vouchers/vouchers.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -22,6 +25,7 @@ import { OrdersModule } from './orders/orders.module';
     AddressesModule,
     CartsModule,
     OrdersModule,
+    VouchersModule,
   ],
   controllers: [],
   providers: [],

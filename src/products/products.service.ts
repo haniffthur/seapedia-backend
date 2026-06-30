@@ -15,19 +15,15 @@ export class ProductsService {
   ) {}
   async createProduct(ownerId: string, data: any) {
     const store = await this.storesService.getMyStore(ownerId);
-    if (!store)
-      throw new ForbiddenException('Anda harus membuat toko terlebih dahulu');
+    if (!store) throw new ForbiddenException('Anda harus membuat toko terlebih dahulu');
 
     return this.prisma.product.create({
       data: {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         name: data.name,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         description: data.description,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         price: data.price,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         stock: data.stock,
+        imageUrl: data.imageUrl || null, // Tangkap data URL gambar
         storeId: store.id,
       },
     });

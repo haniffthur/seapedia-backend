@@ -1,4 +1,6 @@
-// prisma/schema.prisma
+// =====================================================================
+// SEAPEDIA CORE DATABASE SCHEMA (LEVEL 1 - 4)
+// =====================================================================
 
 generator client {
   provider = "prisma-client-js"
@@ -9,6 +11,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ===================== ENUMS =====================
+
 enum Role {
   ADMIN
   SELLER
@@ -16,13 +20,12 @@ enum Role {
   DRIVER
 }
 
-// Enum Status Pesanan sesuai PRD Level 4 & 5
 enum OrderStatus {
-  SEDANG_DIKEMAS     // Menunggu Seller memproses
-  MENUNGGU_PENGIRIM  // Seller sudah proses, menunggu Driver
-  SEDANG_DIKIRIM     // Driver sedang mengantar
-  PESANAN_SELESAI    // Selesai
-  DIKEMBALIKAN       // Overdue / Refund
+  SEDANG_DIKEMAS // Menunggu Seller memproses (Level 3)
+  MENUNGGU_PENGIRIM // Seller sudah proses, menunggu Driver (Level 4)
+  SEDANG_DIKIRIM // Driver sedang mengantar (Level 4)
+  PESANAN_SELESAI // Selesai / Diterima
+  DIKEMBALIKAN // Overdue / Refund
 }
 
 enum DeliveryMethod {
@@ -31,18 +34,24 @@ enum DeliveryMethod {
   REGULAR
 }
 
+// ===================== LEVEL 1: USERS & AUTH =====================
+
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  password  String   
-  roles     Role[]   
-  
-  store     Store?   
+  id       String @id @default(uuid())
+  email    String @unique
+  name     String
+  password String
+  roles    Role[]
+
+  // Relasi Entity
+  store     Store?
   wallet    Wallet?
   addresses Address[]
   cart      Cart?
-  orders    Order[]
+
+  // Pemisahan Tanggung Jawab: Pesanan sebagai Pembeli vs Tugas sebagai Kurir
+  orders       Order[] // Pesanan yang dibeli
+  driverOrders Order[] @relation("DriverOrders") // Pesanan yang diantar
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -53,45 +62,50 @@ model User {
 model ApplicationReview {
   id           String   @id @default(uuid())
   reviewerName String
-  rating       Int      
+  rating       Int
   comment      String   @db.Text
   createdAt    DateTime @default(now())
 
   @@map("application_reviews")
 }
 
+// ===================== LEVEL 2: SELLER & PRODUCTS =====================
+
 model Store {
   id        String    @id @default(uuid())
-  name      String    @unique 
+  name      String    @unique
   ownerId   String    @unique
   owner     User      @relation(fields: [ownerId], references: [id])
   products  Product[]
-  orders    Order[]   // Pesanan yang masuk ke toko ini
+  orders    Order[] // Pesanan yang masuk ke toko ini
   createdAt DateTime  @default(now())
 }
 
 model Product {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   name        String
-  description String   @db.Text
-  price       Decimal  @db.Decimal(12, 2)
+  description String  @db.Text
+  price       Decimal @db.Decimal(12, 2)
   stock       Int
-  storeId     String
-  store       Store    @relation(fields: [storeId], references: [id])
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
-  createdAt   DateTime @default(now())
+  imageUrl    String? @db.Text // Penambahan Level 4 untuk UI Catalog
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id])
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+  createdAt  DateTime    @default(now())
 }
 
-// ================= LEVEL 3 MODELS =================
+// ===================== LEVEL 3: BUYER, WALLET, & CART =====================
 
 model Wallet {
-  id           String             @id @default(uuid())
-  userId       String             @unique
-  user         User               @relation(fields: [userId], references: [id])
-  balance      Decimal            @default(0) @db.Decimal(12, 2)
+  id           String              @id @default(uuid())
+  userId       String              @unique
+  user         User                @relation(fields: [userId], references: [id])
+  balance      Decimal             @default(0) @db.Decimal(12, 2)
   transactions WalletTransaction[]
-  updatedAt    DateTime           @updatedAt
+  updatedAt    DateTime            @updatedAt
 }
 
 model WalletTransaction {
@@ -99,25 +113,25 @@ model WalletTransaction {
   walletId    String
   wallet      Wallet   @relation(fields: [walletId], references: [id])
   amount      Decimal  @db.Decimal(12, 2)
-  type        String   // "TOP_UP", "PAYMENT", "REFUND", "INCOME"
+  type        String // "TOP_UP", "PAYMENT", "REFUND", "INCOME"
   description String
   createdAt   DateTime @default(now())
 }
 
 model Address {
-  id         String   @id @default(uuid())
+  id         String @id @default(uuid())
   userId     String
-  user       User     @relation(fields: [userId], references: [id])
+  user       User   @relation(fields: [userId], references: [id])
   street     String
   city       String
   postalCode String
 }
 
 model Cart {
-  id        String     @id @default(uuid())
-  buyerId   String     @unique
-  buyer     User       @relation(fields: [buyerId], references: [id])
-  items     CartItem[]
+  id      String     @id @default(uuid())
+  buyerId String     @unique
+  buyer   User       @relation(fields: [buyerId], references: [id])
+  items   CartItem[]
 }
 
 model CartItem {
@@ -129,28 +143,35 @@ model CartItem {
   quantity  Int
 }
 
-model Order {
-  id             String      @id @default(uuid())
-  buyerId        String
-  buyer          User        @relation(fields: [buyerId], references: [id])
-  storeId        String
-  store          Store       @relation(fields: [storeId], references: [id])
-  
-  status         OrderStatus @default(SEDANG_DIKEMAS)
-  deliveryMethod DeliveryMethod
-  
-  // Kalkulasi Finansial
-  subtotal       Decimal     @db.Decimal(12, 2)
-  deliveryFee    Decimal     @db.Decimal(12, 2)
-  taxPpn         Decimal     @db.Decimal(12, 2) // PPN 12%
-  discount       Decimal     @default(0) @db.Decimal(12, 2)
-  total          Decimal     @db.Decimal(12, 2)
+// ===================== LEVEL 4: ORDERS, LOGISTICS, & PROMOS =====================
 
-  items          OrderItem[]
-  history        OrderStatusHistory[]
-  
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+model Order {
+  id String @id @default(uuid())
+
+  // Aktor Terlibat
+  buyerId  String
+  buyer    User    @relation(fields: [buyerId], references: [id])
+  storeId  String
+  store    Store   @relation(fields: [storeId], references: [id])
+  driverId String? // Nullable karena menunggu Driver match
+  driver   User?   @relation("DriverOrders", fields: [driverId], references: [id])
+
+  // Status & Logistik
+  status         OrderStatus    @default(SEDANG_DIKEMAS)
+  deliveryMethod DeliveryMethod
+
+  // Kalkulasi Finansial (Snapshot harga saat transaksi)
+  subtotal    Decimal @db.Decimal(12, 2)
+  deliveryFee Decimal @db.Decimal(12, 2)
+  taxPpn      Decimal @db.Decimal(12, 2)
+  discount    Decimal @default(0) @db.Decimal(12, 2)
+  total       Decimal @db.Decimal(12, 2)
+
+  items   OrderItem[]
+  history OrderStatusHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model OrderItem {
@@ -168,5 +189,14 @@ model OrderStatusHistory {
   orderId   String
   order     Order       @relation(fields: [orderId], references: [id])
   status    OrderStatus
-  timestamp DateTime    @default(now()) // Wajib ada sesuai PRD
+  timestamp DateTime    @default(now()) // Event sourcing untuk tracking logistik
+}
+
+model Voucher {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  discountPercent Decimal  @db.Decimal(5, 2)
+  maxDiscount     Decimal  @db.Decimal(12, 2)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
 }

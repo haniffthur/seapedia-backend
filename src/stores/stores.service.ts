@@ -36,7 +36,17 @@ export class StoresService {
   async getMyStore(ownerId: string) {
     return this.prisma.store.findUnique({
       where: { ownerId },
-      include: { products: true },
+      include: {
+        products: { orderBy: { createdAt: 'desc' } },
+        // TAMBAHKAN BARIS INI: Ambil pesanan beserta detail produk dan pembelinya
+        orders: {
+          include: {
+            items: { include: { product: true } },
+            buyer: { select: { name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
   }
 }
