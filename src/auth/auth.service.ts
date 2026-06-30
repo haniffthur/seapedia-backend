@@ -1,5 +1,5 @@
 import {
-  BadRequestException, // <-- Ini yang sebelumnya terlewat
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -13,13 +13,11 @@ import { Role } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
-  // 1. Constructor wajib di urutan paling atas dalam class
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
 
-  // 2. Fungsi Register
   async register(dto: RegisterDto) {
     const userExists = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -47,7 +45,6 @@ export class AuthService {
     };
   }
 
-  // 3. Fungsi Login
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -68,7 +65,6 @@ export class AuthService {
     };
   }
 
-  // 4. Fungsi Select Role yang sudah dirapikan
   async selectRole(userId: string, role: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
@@ -80,13 +76,14 @@ export class AuthService {
       throw new UnauthorizedException('Role tidak tersedia untuk user ini');
     }
 
-    // PERBAIKAN PAYLOAD: Kita masukkan semua kunci agar kompatibel dengan sistem
+    // PAYLOAD LENGKAP: Mendukung fungsionalitas Switch Role di Frontend
     const payload = {
-      sub: user.id, // Wajib untuk JwtStrategy bawaan Passport
-      userId: user.id, // Wajib untuk Controller kita (@GetUser().userId)
+      sub: user.id,
+      userId: user.id,
       email: user.email,
       role: role,
-      activeRole: role, // Wajib untuk ActiveRoleGuard
+      activeRole: role,
+      availableRoles: user.roles,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);

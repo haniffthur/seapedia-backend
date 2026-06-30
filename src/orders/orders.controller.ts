@@ -15,19 +15,12 @@ import { Role, DeliveryMethod } from '@prisma/client';
 import { GetUser } from '../common/decorators/get-user.decorator';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
-/**
- * Data Transfer Object (DTO) untuk Validasi Payload Checkout
- */
 class CheckoutDto {
-  @IsEnum(DeliveryMethod, {
-    message: 'Metode pengiriman harus berupa INSTANT, NEXT_DAY, atau REGULAR',
-  })
+  @IsEnum(DeliveryMethod)
   deliveryMethod!: DeliveryMethod;
 
   @IsString()
-  @IsNotEmpty({
-    message: 'Address ID wajib disertakan untuk tujuan pengiriman',
-  })
+  @IsNotEmpty()
   addressId!: string;
 
   @IsOptional()
@@ -40,12 +33,9 @@ class CheckoutDto {
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
-  // ==================== ENDPOINT OTORITAS: BUYER ====================
-
   @Post('checkout')
   @RequireRoles(Role.BUYER)
   async executeCheckout(@Body() dto: CheckoutDto, @GetUser() user: any) {
-    // user.userId diekstrak secara aman dari payload Token JWT hasil decode Guard
     return this.ordersService.checkout(
       user.userId,
       dto.deliveryMethod,
@@ -60,20 +50,17 @@ export class OrdersController {
     return this.ordersService.getBuyerOrders(user.userId);
   }
 
-  // ==================== ENDPOINT OTORITAS: SELLER ====================
-
   @Put(':id/ready')
   @RequireRoles(Role.SELLER)
   async markOrderAsReady(@Param('id') orderId: string, @GetUser() user: any) {
     return this.ordersService.setReadyForPickup(user.userId, orderId);
   }
 
-  // ==================== ENDPOINT OTORITAS: DRIVER ====================
-
   @Get('deliveries/available')
   @RequireRoles(Role.DRIVER)
-  async listAvailableJobs() {
-    return this.ordersService.getAvailableDeliveries();
+  async listAvailableJobs(@GetUser() user: any) {
+    // PERBAIKAN: Mengirimkan userId kurir ke service untuk Anti-Fraud
+    return this.ordersService.getAvailableDeliveries(user.userId);
   }
 
   @Put(':id/take')
