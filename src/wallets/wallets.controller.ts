@@ -8,14 +8,14 @@ import { GetUser } from '../common/decorators/get-user.decorator';
 
 @Controller('wallets')
 @UseGuards(AuthGuard('jwt'), ActiveRoleGuard)
-@RequireRoles(Role.BUYER) // Sesuai PRD: Hanya Role BUYER
 export class WalletsController {
   constructor(private readonly walletsService: WalletsService) {}
 
   @Get('me')
-  async getWallet(@GetUser() user: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-    return this.walletsService.getMyWallet(user.userId);
+  // Menambahkan Role.SELLER agar sistem mengizinkan penjual memanggil data keuangan mereka
+  @RequireRoles(Role.BUYER, Role.SELLER)
+  async getMyWallet(@GetUser() user: any) {
+    return this.walletsService.getWallet(user.userId);
   }
 
   @Post('topup')

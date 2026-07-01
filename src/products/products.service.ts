@@ -1,56 +1,80 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { StoresService } from '../stores/stores.service';
 
 @Injectable()
 export class ProductsService {
-  constructor(
-    private prisma: PrismaService,
-    private storesService: StoresService, // Kita inject StoresService untuk validasi kepemilikan
-  ) {}
-  async createProduct(ownerId: string, data: any) {
-    const store = await this.storesService.getMyStore(ownerId);
-    if (!store) throw new ForbiddenException('Anda harus membuat toko terlebih dahulu');
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ==================== SELLER LOGIC ====================
+
+  async createProduct(ownerId: string, data: any, imagePath?: string) {
+    const store = await this.prisma.store.findUnique({ where: { ownerId } });
+    if (!store) {
+      throw new NotFoundException(
+        'Anda belum memiliki toko. Silakan buat toko terlebih dahulu.',
+      );
+    }
+
+    if (data.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: data.categoryId },
+      });
+      if (!category) throw new BadRequestException('Kategori tidak valid');
+    }
 
     return this.prisma.product.create({
       data: {
         name: data.name,
         description: data.description,
-        price: data.price,
-        stock: data.stock,
-        imageUrl: data.imageUrl || null, // Tangkap data URL gambar
+        price: Number(data.price),
+        stock: Number(data.stock),
+        categoryId: data.categoryId || null,
         storeId: store.id,
+        imageUrl: imagePath || null,
       },
     });
   }
 
-  // Endpoint Publik (Level 2: Public Catalog)
-  async getAllPublicProducts() {
-    return this.prisma.product.findMany({
-      include: { store: { select: { name: true } } }, // Join untuk mendapatkan nama toko
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
   async deleteProduct(ownerId: string, productId: string) {
-    const store = await this.storesService.getMyStore(ownerId);
-    if (!store) throw new ForbiddenException('Toko tidak ditemukan');
+    const store = await this.prisma.store.findUnique({ where: { ownerId } });
+    if (!store) {
+      throw new NotFoundException('Anda belum memiliki toko.');
+    }
 
-    // Pastikan produk yang akan dihapus benar-benar milik toko ini
     const product = await this.prisma.product.findFirst({
       where: { id: productId, storeId: store.id },
     });
 
-    if (!product)
+    if (!product) {
       throw new NotFoundException(
-        'Produk tidak ditemukan atau bukan milik Anda',
+        'Produk tidak ditemukan atau bukan milik toko Anda.',
       );
+    }
 
-    return this.prisma.product.delete({ where: { id: productId } });
+    return this.prisma.product.delete({
+      where: { id: productId },
+    });
+  }
+
+  // ==================== PUBLIC LOGIC ====================
+
+  async getCategories() {
+    return this.prisma.category.findMany({
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async getAllPublicProducts() {
+    return this.prisma.product.findMany({
+      include: {
+        store: { select: { name: true } },
+        category: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

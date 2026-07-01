@@ -6,26 +6,38 @@ export class WalletsService {
   constructor(private prisma: PrismaService) {}
 
   // Mengambil dompet, jika belum ada, buatkan otomatis dengan saldo 0
-  async getMyWallet(userId: string) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  async getWallet(userId: string) {
+    // 1. Coba cari dompet beserta riwayat transaksinya
     let wallet = await this.prisma.wallet.findUnique({
       where: { userId },
-      include: { transactions: { orderBy: { createdAt: 'desc' } } },
+      include: {
+        transactions: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
+    // 2. AUTO-CREATE LOGIC: Jika belum ada (misal Seller baru), buatkan dompet kosong
     if (!wallet) {
       wallet = await this.prisma.wallet.create({
-        data: { userId, balance: 0 },
-        include: { transactions: true },
+        data: {
+          userId,
+          balance: 0,
+        },
+        // Kembalikan format yang sama (transactions kosong)
+        include: {
+          transactions: true,
+        },
       });
     }
+
     return wallet;
   }
 
   // Fitur Top Up Dummy
   async dummyTopUp(userId: string, amount: number) {
     // Pastikan dompet sudah ada
-    const wallet = await this.getMyWallet(userId);
+    const wallet = await this.getWallet(userId);
 
     // Gunakan Prisma Transaction agar update saldo dan riwayat tercatat bersamaan (ACID)
     return this.prisma.$transaction(async (prisma) => {
