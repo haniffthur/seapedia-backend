@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -89,5 +90,18 @@ export class CartsService {
   async clearCart(buyerId: string) {
     const cart = await this.getCart(buyerId);
     return this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+  }
+  async updateItemQuantity(itemId: string, quantity: number) {
+    if (quantity < 1) throw new BadRequestException('Kuantitas tidak valid');
+    return this.prisma.cartItem.update({
+      where: { id: itemId },
+      data: { quantity: Number(quantity) },
+    });
+  }
+
+  async removeCartItem(itemId: string) {
+    return this.prisma.cartItem.delete({
+      where: { id: itemId },
+    });
   }
 }

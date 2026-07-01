@@ -56,4 +56,20 @@ export class CartsController {
   async clearMyCart(@GetUser() user: any) {
     return this.cartsService.clearCart(user.userId);
   }
+  @Put('items/:id')
+  @UseGuards(AuthGuard('jwt'), ActiveRoleGuard)
+  @RequireRoles(Role.BUYER)
+  async updateCartItem(
+    @Param('id') itemId: string,
+    @Body('quantity') quantity: number,
+  ) {
+    return this.cartsService.updateItemQuantity(itemId, quantity);
+  }
+
+  @Delete('items/:id')
+  @UseGuards(AuthGuard('jwt'), ActiveRoleGuard)
+  @RequireRoles(Role.BUYER)
+  async removeCartItem(@Param('id') itemId: string) {
+    return this.cartsService.removeCartItem(itemId);
+  }
 }

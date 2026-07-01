@@ -71,7 +71,8 @@ export class ProductsService {
   async getAllPublicProducts() {
     return this.prisma.product.findMany({
       include: {
-        store: { select: { name: true } },
+        // ANTI-FRAUD UPDATE: Sertakan ownerId agar Frontend bisa melakukan validasi
+        store: { select: { id: true, name: true, ownerId: true } },
         category: true,
       },
       orderBy: { createdAt: 'desc' },

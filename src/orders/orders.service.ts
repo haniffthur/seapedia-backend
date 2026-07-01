@@ -36,6 +36,17 @@ export class OrdersService {
       throw new BadRequestException('Keranjang kosong');
 
     const storeId = cart.items[0].product.storeId;
+    const store = await this.prisma.store.findUnique({
+      where: { id: storeId },
+    });
+
+    // 🔥 ANTI-FRAUD BUYER/SELLER: Cegah membeli dari toko sendiri
+    if (store && store.ownerId === buyerId) {
+      throw new BadRequestException(
+        'Anti-Fraud: Anda tidak diperbolehkan memproses pesanan dari toko Anda sendiri.',
+      );
+    }
+
     let wallet = await this.prisma.wallet.findUnique({
       where: { userId: buyerId },
     });
@@ -161,7 +172,7 @@ export class OrdersService {
     });
   }
 
-  // ANTI-FRAUD: Mengecualikan pesanan yang tokonya dimiliki oleh kurir itu sendiri
+  // 🔥 ANTI-FRAUD DRIVER: Mengecualikan pesanan yang tokonya dimiliki oleh kurir itu sendiri
   async getAvailableDeliveries(driverId: string) {
     return this.prisma.order.findMany({
       where: {
@@ -191,7 +202,7 @@ export class OrdersService {
     }
     if (order.store.ownerId === driverId) {
       throw new BadRequestException(
-        'Anda tidak dapat menjadi kurir untuk pesanan dari toko Anda sendiri',
+        'Anti-Fraud: Anda tidak dapat menjadi kurir untuk pesanan dari toko Anda sendiri',
       );
     }
 
